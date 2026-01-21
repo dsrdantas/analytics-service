@@ -23,8 +23,8 @@ SQS_QUEUE_URL = os.getenv("AWS_SQS_URL")
 AWS_SQS_ENDPOINT = os.getenv("AWS_SQS_ENDPOINT")
 AWS_DYNAMODB_ENDPOINT = os.getenv("AWS_DYNAMODB_ENDPOINT")
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 DYNAMODB_TABLE_NAME = os.getenv("AWS_DYNAMODB_TABLE")
 
 if not all([AWS_REGION, SQS_QUEUE_URL, DYNAMODB_TABLE_NAME]):
@@ -34,11 +34,18 @@ if not all([AWS_REGION, SQS_QUEUE_URL, DYNAMODB_TABLE_NAME]):
 # --- Clientes Boto3 ---
 # Criamos a sessão uma vez
 try:
-    session = boto3.Session(
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION,
-    )
+    if AWS_SQS_ENDPOINT or AWS_DYNAMODB_ENDPOINT:
+        # 👉 LocalStack (DEV)
+        session = boto3.Session(
+            aws_access_key_id=AWS_ACCESS_KEY_ID or "test",
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY or "test",
+            region_name=AWS_REGION,
+        )
+        log.info("Boto3 usando credenciais estáticas (LocalStack)")
+    else:
+        # 👉 AWS REAL (EKS / EC2)
+        session = boto3.Session(region_name=AWS_REGION)
+        log.info("Boto3 usando IAM Role / IRSA")
 
     sqs_client = session.client(
         "sqs",
@@ -50,13 +57,11 @@ try:
         endpoint_url=AWS_DYNAMODB_ENDPOINT
     )
 
-    logging.info("Clientes Boto3 inicializados usando LocalStack")
-
 except NoCredentialsError:
-    logging.critical("Credenciais da AWS não encontradas.")
+    log.critical("Credenciais AWS não encontradas.")
     sys.exit(1)
 except Exception as e:
-    logging.critical(f"Erro ao inicializar o Boto3: {e}")
+    log.critical(f"Erro ao inicializar Boto3: {e}")
     sys.exit(1)
 
 
