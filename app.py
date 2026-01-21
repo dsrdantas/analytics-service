@@ -20,6 +20,11 @@ load_dotenv()
 # --- Configuração ---
 AWS_REGION = os.getenv("AWS_REGION")
 SQS_QUEUE_URL = os.getenv("AWS_SQS_URL")
+AWS_SQS_ENDPOINT = os.getenv("AWS_SQS_ENDPOINT")
+AWS_DYNAMODB_ENDPOINT = os.getenv("AWS_DYNAMODB_ENDPOINT")
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
 DYNAMODB_TABLE_NAME = os.getenv("AWS_DYNAMODB_TABLE")
 
 if not all([AWS_REGION, SQS_QUEUE_URL, DYNAMODB_TABLE_NAME]):
@@ -29,15 +34,29 @@ if not all([AWS_REGION, SQS_QUEUE_URL, DYNAMODB_TABLE_NAME]):
 # --- Clientes Boto3 ---
 # Criamos a sessão uma vez
 try:
-    session = boto3.Session(region_name=AWS_REGION)
-    sqs_client = session.client("sqs")
-    dynamodb_client = session.client("dynamodb")
-    log.info(f"Clientes Boto3 inicializados na região {AWS_REGION}")
+    session = boto3.Session(
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION,
+    )
+
+    sqs_client = session.client(
+        "sqs",
+        endpoint_url=AWS_SQS_ENDPOINT
+    )
+
+    dynamodb_client = session.client(
+        "dynamodb",
+        endpoint_url=AWS_DYNAMODB_ENDPOINT
+    )
+
+    logging.info("Clientes Boto3 inicializados usando LocalStack")
+
 except NoCredentialsError:
-    log.critical("Credenciais da AWS não encontradas. Verifique seu ambiente.")
+    logging.critical("Credenciais da AWS não encontradas.")
     sys.exit(1)
 except Exception as e:
-    log.critical(f"Erro ao inicializar o Boto3: {e}")
+    logging.critical(f"Erro ao inicializar o Boto3: {e}")
     sys.exit(1)
 
 
